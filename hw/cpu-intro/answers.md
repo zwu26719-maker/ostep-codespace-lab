@@ -43,36 +43,81 @@ CPU Utilization: 6/11 ≈ 54.5%
 
 ## Q3
 - Prediction / 预测:
+'''
+Time PID 0 PID 1 CPU IOs
+1 RUN:io READY 1 1
+2 BLOCKED RUN:cpu 1
+3 BLOCKED RUN:cpu 1
+4 BLOCKED RUN:cpu 1
+5 BLOCKED RUN:cpu 1
+6 BLOCKED DONE 1
+7* RUN:io_done DONE 1
+'''
 - Reasoning / 理由:
+进程0先发起I/O（占用1个tick），进入BLOCKED状态等待5个tick。与此同时，进程1在就绪队列中，所以I/O等待期间CPU没有空闲，而是调度进程1执行了4条CPU指令。I/O完成后，进程0再次运行io_done（占用1个tick）并结束。总时间为7个tick，CPU忙碌了6个tick。
 - Verified result / 验证结果:
 - Analysis / 分析:
 
 ## Q4
 - Prediction / 预测:
+'''
+Time PID 0 PID 1 CPU IOs
+1 RUN:io READY 1 1
+2 BLOCKED READY 1
+3 BLOCKED READY 1
+4 BLOCKED READY 1
+5 BLOCKED READY 1
+6 BLOCKED READY 1
+7* RUN:io_done DONE 1
+'''
 - Reasoning / 理由:
+-S SWITCH_ON_END 表示进程在运行期间不会被打断，直到当前进程完全结束。当进程0发起I/O进入阻塞后，系统没有调用就绪的进程1，而是让CPU空转了5个tick，导致CPU利用率大幅降低。
 - Verified result / 验证结果:
 - Analysis / 分析:
 
 ## Q5
 - Prediction / 预测:
+'''
+Time PID 0 PID 1 CPU IOs
+1 RUN:io READY 1 1
+2 BLOCKED RUN:cpu 1
+3 BLOCKED RUN:cpu 1
+4 BLOCKED RUN:cpu 1
+5 BLOCKED RUN:cpu 1
+6 BLOCKED DONE 1
+7* RUN:io_done DONE 1
+'''
 - Reasoning / 理由:
+-S SWITCH_ON_IO 表示进程发起I/O时允许切换CPU。进程0进入BLOCKED后，系统立刻调度进程1执行它的4个CPU tick。这提高了CPU利用率。
 - Verified result / 验证结果:
 - Analysis / 分析:
 
 ## Q6
 - Prediction / 预测:
+（受限于篇幅，此处进行宏观状态预测。根据 IO_RUN_LATER 策略，I/O 完成后需排在队尾。）
+Total Time: 22 ticks
+CPU Utilization: 17/22 ≈ 77.3%
+状态演变：PID 0 发起 I/O 后阻塞，CPU 转去执行 PID 1、2、3 各 5 个 tick 的 CPU 任务。在此期间 PID 0 等待，完成后被排在队尾，等 PID 3 结束才执行 io_done。
 - Reasoning / 理由:
+-I IO_RUN_LATER 表示 I/O 完成后进程不会立刻抢占 CPU，而是进入就绪队列末尾。因此，当 PID 0 完成 I/O 时，它必须等待 PID 1、2、3 的 15 个 CPU tick 执行完毕。虽然 CPU 利用率较高，但 I/O 密集型进程的响应时间被严重拉长了。
 - Verified result / 验证结果:
 - Analysis / 分析:
 
 ## Q7
 - Prediction / 预测:
+（受限于篇幅，此处进行宏观状态预测。与 Q6 不同，使用 IO_RUN_IMMEDIATE 策略。）
+Total Time: 20 ticks
+CPU Utilization: 17/20 = 85%
+状态演变：PID 0 发起 I/O 后阻塞，CPU 转去执行其他进程。当 PID 0 的 I/O 完成时，它立刻抢占 CPU 执行 io_done，然后才轮到后面的进程。
 - Reasoning / 理由:
+-I IO_RUN_IMMEDIATE 表示 I/O 完成后立刻抢占 CPU。相比于 Q6 的 IO_RUN_LATER，I/O 密集型的进程 0 不再被排在队尾，而是立刻执行 io_done。这缩短了总时间（20 < 22），提高了整体响应速度和 CPU 利用率（85% > 77.3%）。
 - Verified result / 验证结果:
 - Analysis / 分析:
 
 ## Q8
 - Prediction / 预测:
+Q8 包含随机种子，无法精确预知每个 tick 的状态。这里进行宏观预测：由于指令随机，不同种子会产生不同的 CPU/I/O 比例。）
 - Reasoning / 理由:
+Q8 涉及随机指令流。通过在相同种子下对比默认策略、-I IO_RUN_IMMEDIATE 和 -S SWITCH_ON_END，可以观察参数变化对总时间和 CPU 利用率的宏观影响。
 - Verified result / 验证结果:
 - Analysis / 分析:
